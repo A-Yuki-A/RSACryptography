@@ -78,7 +78,7 @@ st.title("PrimeGuard RSA")
 st.markdown(
     """
 RSA暗号ではまず2つの大きな素数 p, q を用意し、n = p × q を計算して鍵を作ります。  
-e は φ(n) と互いに素な最小の値を自動選択します。
+e は φ(n) と互いに素な値をプログラムが自動で選びます。
 """
 )
 
@@ -99,34 +99,38 @@ if role == "受信者":
 
     phi = (p - 1) * (q - 1)
 
-    # text_input を1回だけ呼ぶようにする（エラー防止）
+    # ★ p, q 選択ですぐ e を自動計算して表示
     if p == q:
-        e_auto, e_display = None, "pとqを選択"
+        e_auto, e_display = None, "pとqを異なる素数にしてください"
     else:
         try:
             e_auto = auto_select_e(phi, p, q)
             e_display = str(e_auto)
         except ValueError:
-            e_auto, e_display = None, "なし"
+            e_auto, e_display = None, "条件を満たす e なし"
 
     with c3:
-        st.text_input("公開鍵 e（自動）", value=e_display, disabled=True, key="recv_auto_e")
+        st.text_input(
+            "公開鍵 e（自動計算）",
+            value=e_display,
+            disabled=True,
+            key="recv_auto_e"
+        )
 
+    # 「鍵生成」ボタンで n, d を確定
     if st.button("鍵生成", key='recv_gen'):
         if p == q:
             st.error("p と q は異なる素数を選んでください。")
+        elif e_auto is None:
+            st.error("e が自動計算できていません。p, q を変更してください。")
         else:
-            try:
-                e = e_auto if e_auto else auto_select_e(phi, p, q)
-                n = p * q
-                d = mod_inverse(e, phi)
-                if d is None:
-                    st.error("d（逆元）が求まりませんでした。p, q を変更してください。")
-                else:
-                    st.session_state.update({'n': n, 'e': e, 'd': d, 'done_recv': True})
-                    st.success("鍵生成完了。以下の値をコピーしてください。")
-            except ValueError as ve:
-                st.error(str(ve))
+            n = p * q
+            d = mod_inverse(e_auto, phi)
+            if d is None:
+                st.error("d（逆元）が求まりませんでした。p, q を変更してください。")
+            else:
+                st.session_state.update({'n': n, 'e': e_auto, 'd': d, 'done_recv': True})
+                st.success("鍵生成完了。以下の値をコピーしてください。")
 
     if st.session_state.get("done_recv", False):
         for label, val in [("公開鍵 n", st.session_state.n),
@@ -136,7 +140,8 @@ if role == "受信者":
             col.write(f"{label}: {val}")
             with btn:
                 components.html(
-                    f"<button style='border:none;background:none;padding:0;color:blue;cursor:pointer;' onclick=\"navigator.clipboard.writeText('{val}')\">Copy</button>",
+                    f"<button style='border:none;background:none;padding:0;color:blue;cursor:pointer;' "
+                    f"onclick=\"navigator.clipboard.writeText('{val}')\">Copy</button>",
                     height=30
                 )
 
@@ -172,35 +177,40 @@ elif role == "一人で行う":
         p = st.selectbox("素数 p", primes, key='solo_p')
     with c2:
         q = st.selectbox("素数 q", primes, key='solo_q')
+
     phi1 = (p - 1) * (q - 1)
 
+    # ★ ここも p, q を選んだら e を自動計算して表示
     if p == q:
-        e_auto1, e_display1 = None, "pとqを選択"
+        e_auto1, e_display1 = None, "pとqを異なる素数にしてください"
     else:
         try:
             e_auto1 = auto_select_e(phi1, p, q)
             e_display1 = str(e_auto1)
         except ValueError:
-            e_auto1, e_display1 = None, "なし"
+            e_auto1, e_display1 = None, "条件を満たす e なし"
 
     with c3:
-        st.text_input("公開鍵 e（自動）", value=e_display1, disabled=True, key="solo_auto_e")
+        st.text_input(
+            "公開鍵 e（自動計算）",
+            value=e_display1,
+            disabled=True,
+            key="solo_auto_e"
+        )
 
     if st.button("鍵生成", key='solo_gen'):
         if p == q:
             st.error("p と q は異なる素数を選んでください。")
+        elif e_auto1 is None:
+            st.error("e が自動計算できていません。p, q を変更してください。")
         else:
-            try:
-                e = e_auto1 if e_auto1 else auto_select_e(phi1, p, q)
-                n1 = p * q
-                d1 = mod_inverse(e, phi1)
-                if d1 is None:
-                    st.error("d（逆元）が求まりませんでした。")
-                else:
-                    st.session_state.update({'n': n1, 'e': e, 'd': d1, 'done_solo': True})
-                    st.success("鍵生成完了。下の値をコピーして使ってください。")
-            except ValueError as ve:
-                st.error(str(ve))
+            n1 = p * q
+            d1 = mod_inverse(e_auto1, phi1)
+            if d1 is None:
+                st.error("d（逆元）が求まりませんでした。")
+            else:
+                st.session_state.update({'n': n1, 'e': e_auto1, 'd': d1, 'done_solo': True})
+                st.success("鍵生成完了。下の値をコピーして使ってください。")
 
     if st.session_state.get("done_solo", False):
         for label, val in [("公開鍵 n", st.session_state.n),
@@ -210,13 +220,14 @@ elif role == "一人で行う":
             col.write(f"{label}: {val}")
             with btn:
                 components.html(
-                    f"<button style='border:none;background:none;padding:0;color:blue;cursor:pointer;' onclick=\"navigator.clipboard.writeText('{val}')\">Copy</button>",
+                    f"<button style='border:none;background:none;padding:0;color:blue;cursor:pointer;' "
+                    f"onclick=\"navigator.clipboard.writeText('{val}')\">Copy</button>",
                     height=30
                 )
 
         st.markdown("---")
         st.header("2. 暗号化")
-        st.caption(f"上で生成した n, e をコピーして入力してください。")
+        st.caption("上で生成した n, e をコピーして入力してください。")
         oc1, oc2, oc3 = st.columns(3)
         with oc1:
             n_enc = st.text_input("公開鍵 n", value="", placeholder="コピーした n を貼り付け", key='solo_enc_n')
