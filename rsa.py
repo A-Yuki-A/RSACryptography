@@ -98,24 +98,26 @@ if role == "受信者":
         q = st.selectbox("素数 q", primes, key='recv_q')
 
     phi = (p - 1) * (q - 1)
-    e_auto = None
-    valid_now = p != q
+
+    # text_input を1回だけ呼ぶようにする（エラー防止）
+    if p == q:
+        e_auto, e_display = None, "pとqを選択"
+    else:
+        try:
+            e_auto = auto_select_e(phi, p, q)
+            e_display = str(e_auto)
+        except ValueError:
+            e_auto, e_display = None, "なし"
+
     with c3:
-        if valid_now:
-            try:
-                e_auto = auto_select_e(phi, p, q)
-                st.text_input("公開鍵 e（自動）", value=str(e_auto), disabled=True)
-            except ValueError:
-                st.text_input("公開鍵 e（自動）", value="なし", disabled=True)
-        else:
-            st.text_input("公開鍵 e（自動）", value="pとqを選択", disabled=True)
+        st.text_input("公開鍵 e（自動）", value=e_display, disabled=True, key="recv_auto_e")
 
     if st.button("鍵生成", key='recv_gen'):
         if p == q:
             st.error("p と q は異なる素数を選んでください。")
         else:
             try:
-                e = auto_select_e(phi, p, q)
+                e = e_auto if e_auto else auto_select_e(phi, p, q)
                 n = p * q
                 d = mod_inverse(e, phi)
                 if d is None:
@@ -126,7 +128,7 @@ if role == "受信者":
             except ValueError as ve:
                 st.error(str(ve))
 
-    if st.session_state.done_recv:
+    if st.session_state.get("done_recv", False):
         for label, val in [("公開鍵 n", st.session_state.n),
                            ("公開鍵 e", st.session_state.e),
                            ("秘密鍵 d", st.session_state.d)]:
@@ -143,9 +145,9 @@ if role == "受信者":
         st.caption("秘密鍵 (n, d) をコピーして入力してください。")
         d1, d2, d3 = st.columns(3)
         with d1:
-            n_in = st.text_input("公開鍵 n", value="", placeholder="コピーした n を貼り付けてください", key='dec_n')
+            n_in = st.text_input("公開鍵 n", value="", placeholder="コピーした n を貼り付け", key='dec_n')
         with d2:
-            d_in = st.text_input("秘密鍵 d", value="", placeholder="コピーした d を貼り付けてください", key='dec_d')
+            d_in = st.text_input("秘密鍵 d", value="", placeholder="コピーした d を貼り付け", key='dec_d')
         with d3:
             c_in = st.text_area("暗号文 (Base64)", placeholder="送信者からの暗号文を貼り付け", key='dec_c')
 
@@ -171,19 +173,25 @@ elif role == "一人で行う":
     with c2:
         q = st.selectbox("素数 q", primes, key='solo_q')
     phi1 = (p - 1) * (q - 1)
-    with c3:
+
+    if p == q:
+        e_auto1, e_display1 = None, "pとqを選択"
+    else:
         try:
-            e_auto1 = auto_select_e(phi1, p, q) if p != q else None
-            st.text_input("公開鍵 e（自動）", value=str(e_auto1) if e_auto1 else "pとqを選択", disabled=True)
+            e_auto1 = auto_select_e(phi1, p, q)
+            e_display1 = str(e_auto1)
         except ValueError:
-            st.text_input("公開鍵 e（自動）", value="なし", disabled=True)
+            e_auto1, e_display1 = None, "なし"
+
+    with c3:
+        st.text_input("公開鍵 e（自動）", value=e_display1, disabled=True, key="solo_auto_e")
 
     if st.button("鍵生成", key='solo_gen'):
         if p == q:
             st.error("p と q は異なる素数を選んでください。")
         else:
             try:
-                e = auto_select_e(phi1, p, q)
+                e = e_auto1 if e_auto1 else auto_select_e(phi1, p, q)
                 n1 = p * q
                 d1 = mod_inverse(e, phi1)
                 if d1 is None:
@@ -194,7 +202,7 @@ elif role == "一人で行う":
             except ValueError as ve:
                 st.error(str(ve))
 
-    if st.session_state.done_solo:
+    if st.session_state.get("done_solo", False):
         for label, val in [("公開鍵 n", st.session_state.n),
                            ("公開鍵 e", st.session_state.e),
                            ("秘密鍵 d", st.session_state.d)]:
